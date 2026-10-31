@@ -8,7 +8,8 @@ const backendPath = new URL("../src/index.js", import.meta.url);
 test("lead cards have expandable PHP and hackability buttons", async () => {
   const source = await readFile(appPath, "utf8");
 
-  assert.match(source, /PHP:\s*\{php\.detected\s*\?\s*"Yes"\s*:\s*"No"\}/);
+  assert.match(source, /PHP:\s*\{phpLabel\}/);
+  assert.match(source, /phpClassification === "likely"/);
   assert.match(source, /Hackability:\s*\{risk\.level\}/);
   assert.match(source, /aria-expanded=\{openSecurityPanel\[phpPanelKey\]/);
   assert.match(source, /aria-expanded=\{openSecurityPanel\[hackPanelKey\]/);

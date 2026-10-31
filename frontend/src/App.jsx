@@ -709,6 +709,8 @@ function HuntPanel({ hunt, setHunt, state, runHunt, result, error, onDetail, onE
           {result.leads.map((l) => {
             const php = l.phpSecurity || l.phpDetection || { detected: false, evidence: [], advisories: [] };
             const risk = l.hackRisk || { level: "n/a", factors: [] };
+            const phpClassification = php.classification || (php.detected ? "confirmed" : "not_detected");
+            const phpLabel = phpClassification === "confirmed" ? "Confirmed" : phpClassification === "likely" ? "Likely" : "Not detected";
             const phpPanelKey = `${l.domain}:php`;
             const hackPanelKey = `${l.domain}:hackability`;
             return (
@@ -769,12 +771,12 @@ function HuntPanel({ hunt, setHunt, state, runHunt, result, error, onDetail, onE
                 <p className="muted" style={{ fontSize: 13 }}><strong>Pitch:</strong> {l.pitchAngle} — {l.fixSuggestion}</p>
                 <div className="btn-row" style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                   <button
-                    className={`btn btn-sm security-toggle php-toggle ${php.detected ? "is-detected" : ""}`}
+                    className={`btn btn-sm security-toggle php-toggle php-${phpClassification}`}
                     onClick={() => toggleSecurityPanel(phpPanelKey)}
                     aria-expanded={openSecurityPanel[phpPanelKey] || false}
                     title="Show PHP detection evidence and version advisory matches"
                   >
-                    🐘 PHP: {php.detected ? "Yes" : "No"} {openSecurityPanel[phpPanelKey] ? "▴" : "▾"}
+                    🐘 PHP: {phpLabel} {openSecurityPanel[phpPanelKey] ? "▴" : "▾"}
                   </button>
                   <button
                     className={`btn btn-sm security-toggle hack-toggle risk-${risk.level}`}
@@ -823,8 +825,8 @@ function HuntPanel({ hunt, setHunt, state, runHunt, result, error, onDetail, onE
                   <div className="lead-security-panel php-panel">
                     <h4>PHP evidence and version check</h4>
                     <p>
-                      <strong>{php.detected ? "PHP detected" : "No reliable PHP evidence found"}</strong>
-                      {php.version ? ` — version ${php.version}` : php.detected ? " — exact version not exposed" : ""}.
+                      <strong>{phpClassification === "confirmed" ? "PHP directly confirmed" : phpClassification === "likely" ? "PHP likely" : "PHP not detected"}</strong>
+                      {php.version ? ` — version ${php.version}` : php.detected ? " — exact version not exposed" : " — the server may be hiding it"}.
                     </p>
                     {php.note && <p className="muted">{php.note}</p>}
                     {Array.isArray(php.evidence) && php.evidence.length > 0 && (
@@ -1278,6 +1280,7 @@ function SecurityCard({ audit }) {
   const factors = (audit.hackRisk && audit.hackRisk.factors) || [];
   const secFindings = (audit.findings || []).filter((f) => f.category === "security");
   const php = audit.phpSecurity || null;
+  const phpClassification = php?.classification || (php?.detected ? "confirmed" : "not_detected");
   const cmsLabel = audit.cms
     ? audit.cms.toLowerCase() === "wordpress"
       ? `WordPress${audit.cmsVersion ? ` ${audit.cmsVersion}` : ""}`
@@ -1297,7 +1300,7 @@ function SecurityCard({ audit }) {
           <InfoRow k="Uses WordPress?" v={audit.cms === "wordpress" ? "Yes" : audit.cms ? "No" : "Unknown"} />
           <InfoRow
             k="PHP runtime"
-            v={!php || !php.detected ? "No reliable evidence" : php.version ? `Detected — ${php.version} (${php.confidence} confidence)` : `Detected — version not exposed (${php.confidence} confidence)`}
+            v={!php || !php.detected ? "Not detected (may be hidden)" : php.version ? `Confirmed — ${php.version} (${php.confidence} confidence)` : phpClassification === "likely" ? `Likely — version hidden (${php.confidence} confidence)` : `Confirmed — version hidden (${php.confidence} confidence)`}
           />
           {php && php.detected && (
             <InfoRow

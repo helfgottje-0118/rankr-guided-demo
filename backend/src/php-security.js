@@ -9,6 +9,8 @@ function exactPhpVersion(value) {
 
 export function detectPhpRuntime(sec = {}, finalUrl = "") {
   const evidence = [];
+  const directEvidence = [];
+  const inferredEvidence = [];
   const powered = String(sec.xPowered || "");
   const poweredMatch = powered.match(/(?:^|[\s,;])PHP(?:\/([0-9]+\.[0-9]+(?:\.[0-9]+)?(?:[-+][0-9A-Za-z.-]+)?))?/i);
   let version = "";
@@ -16,30 +18,48 @@ export function detectPhpRuntime(sec = {}, finalUrl = "") {
 
   if (poweredMatch) {
     version = exactPhpVersion(poweredMatch[1]);
-    evidence.push(`X-Powered-By: ${powered}`);
+    directEvidence.push(`X-Powered-By: ${powered}`);
     confidence = "high";
   }
   if (sec.phpSignals?.sessionCookie) {
-    evidence.push("PHPSESSID session cookie");
+    directEvidence.push("PHPSESSID session cookie");
     if (confidence === "low") confidence = "medium";
   }
   if (sec.phpSignals?.errorSignature) {
-    evidence.push("PHP error signature in response");
+    directEvidence.push("PHP error signature in response");
     confidence = "high";
   }
   if (sec.phpSignals?.contentMarker) {
-    evidence.push("PHP-specific page marker");
+    inferredEvidence.push("PHP-specific page marker");
     if (confidence === "low") confidence = "medium";
   }
   try {
     if (/\.php(?:\/|$)/i.test(new URL(finalUrl).pathname)) {
-      evidence.push("Public URL uses a .php path");
+      inferredEvidence.push("Public URL uses a .php path");
       if (confidence === "low") confidence = "medium";
     }
   } catch {}
 
+  const wpSignals = sec.wpSignals || {};
+  const wordpressEvidence = [
+    [wpSignals.loginOpen, "Live WordPress login form responded at /wp-login.php"],
+    [wpSignals.xmlrpcOpen, "Live WordPress XML-RPC endpoint responded"],
+    [wpSignals.usersOpen, "Live WordPress users REST endpoint responded"],
+    [wpSignals.routesOpen, "Live WordPress REST route index responded"],
+    [wpSignals.readmeOpen, "WordPress readme endpoint responded"],
+    [wpSignals.debugOpen, "WordPress debug log endpoint exposed PHP traces"],
+  ].filter(([present]) => present).map(([, label]) => label);
+  inferredEvidence.push(...wordpressEvidence);
+  if (!directEvidence.length && wordpressEvidence.length) {
+    confidence = wordpressEvidence.length >= 2 ? "high" : "medium";
+  }
+
+  evidence.push(...directEvidence, ...inferredEvidence);
+  const classification = directEvidence.length ? "confirmed" : inferredEvidence.length ? "likely" : "not_detected";
+
   return {
     detected: evidence.length > 0,
+    classification,
     version,
     confidence: evidence.length ? confidence : "none",
     evidence: [...new Set(evidence)],
@@ -127,6 +147,7 @@ export async function assessPhpSecurity(detection = {}, options = {}) {
   const base = {
     runtime: "php",
     detected: Boolean(detection.detected),
+    classification: detection.classification || (detection.detected ? "confirmed" : "not_detected"),
     version: detection.version || "",
     confidence: detection.confidence || "none",
     evidence: detection.evidence || [],
@@ -141,8 +162,10 @@ export async function assessPhpSecurity(detection = {}, options = {}) {
   if (!nvdCpeForPhp(base.version)) {
     return {
       ...base,
-      status: "detected_version_unknown",
-      note: "PHP was detected, but no exact version was disclosed. Rankr did not guess a version or claim a CVE match.",
+      status: base.classification === "likely" ? "likely_version_unknown" : "detected_version_unknown",
+      note: base.classification === "likely"
+        ? "PHP is likely because live WordPress/PHP-style endpoints responded, but the runtime did not directly disclose itself or an exact version. Rankr did not guess a version or claim a CVE match."
+        : "PHP was directly detected, but no exact version was disclosed. Rankr did not guess a version or claim a CVE match.",
     };
   }
 

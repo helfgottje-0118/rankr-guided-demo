@@ -25,6 +25,33 @@ test("detects PHP without inventing a version", () => {
   assert.equal(result.confidence, "medium");
 });
 
+test("classifies multiple live WordPress endpoints as likely PHP when disclosure is hidden", () => {
+  const result = detectPhpRuntime({
+    xPowered: "",
+    phpSignals: {},
+    wpSignals: { loginOpen: true, xmlrpcOpen: true, routesOpen: true },
+  }, "https://example.com/");
+
+  assert.equal(result.detected, true);
+  assert.equal(result.classification, "likely");
+  assert.equal(result.version, "");
+  assert.equal(result.confidence, "high");
+  assert.match(result.evidence.join(" "), /WordPress login form/i);
+});
+
+test("keeps a lone WordPress runtime signal as likely rather than confirmed PHP", () => {
+  const result = detectPhpRuntime({
+    xPowered: "",
+    phpSignals: {},
+    wpSignals: { loginOpen: true },
+  }, "https://example.com/");
+
+  assert.equal(result.detected, true);
+  assert.equal(result.classification, "likely");
+  assert.equal(result.confidence, "medium");
+  assert.equal(result.version, "");
+});
+
 test("builds an exact NVD PHP CPE", () => {
   assert.equal(
     nvdCpeForPhp("8.1.12"),

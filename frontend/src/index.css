@@ -284,8 +284,10 @@ a { color: var(--primary); }
 }
 .php-toggle { background: #f3f4f6; border-color: #d1d5db; color: #374151; }
 .php-toggle:hover { background: #e5e7eb; color: #111827; }
-.php-toggle.is-detected { background: #ecfdf5; border-color: #6ee7b7; color: #047857; }
-.php-toggle.is-detected:hover { background: #d1fae5; color: #065f46; }
+.php-toggle.php-confirmed { background: #ecfdf5; border-color: #6ee7b7; color: #047857; }
+.php-toggle.php-confirmed:hover { background: #d1fae5; color: #065f46; }
+.php-toggle.php-likely { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+.php-toggle.php-likely:hover { background: #dbeafe; color: #1e40af; }
 .hack-toggle.risk-high { background: #fff1f0; border-color: #ffa39e; color: #a8071a; }
 .hack-toggle.risk-medium { background: #fffbe6; border-color: #ffe58f; color: #7a5b00; }
 .hack-toggle.risk-low { background: #f6ffed; border-color: #b7eb8f; color: #135200; }
