@@ -1,5 +1,6 @@
 import { chromium } from "playwright";
 import { INPAGE_SCRIPT } from "./inpage.js";
+import { assessPhpSecurity, detectPhpRuntime } from "./php-security.js";
 import { mkdtempSync, readFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -215,7 +216,7 @@ async function renderSite(url, timeoutMs, captureScreens = true) {
 }
 
 async function probeSecurity(normalized) {
-  const out = { headers: {}, wpSignals: {}, server: "", xPowered: "", xFrameOptions: false, xXss: false, csp: false, hsts: false };
+  const out = { headers: {}, wpSignals: {}, phpSignals: {}, server: "", xPowered: "", xFrameOptions: false, xXss: false, csp: false, hsts: false };
   try {
     const target = new URL(normalized);
     const origin = target.origin;
@@ -223,7 +224,7 @@ async function probeSecurity(normalized) {
     // cannot bleed into the vulnerable fixture on the same demo origin.
     const probeBase = target.pathname.startsWith("/fixed") ? `${origin}/fixed` : origin;
     const probes = [
-      ["origin", target.pathname.startsWith("/fixed") ? `${probeBase}/` : origin],
+      ["origin", target.pathname.startsWith("/fixed") ? `${probeBase}/` : target.href],
       ["login", `${probeBase}/wp-login.php`],
       ["xmlrpc", `${probeBase}/xmlrpc.php`],
       ["users", `${probeBase}/wp-json/wp/v2/users`],
@@ -258,6 +259,9 @@ async function probeSecurity(normalized) {
       out.headers[r.k] = r.status;
       out.server = out.server || h.server || "";
       out.xPowered = out.xPowered || h["x-powered-by"] || "";
+      if (/\bPHPSESSID=/i.test(h["set-cookie"] || "")) out.phpSignals.sessionCookie = true;
+      if (/PHP\s+(?:Fatal error|Warning|Notice|Parse error)/i.test(r.body)) out.phpSignals.errorSignature = true;
+      if (r.k === "origin" && /(?:href|src|action)=["'][^"']*\.php(?:[?#"'])/i.test(r.body)) out.phpSignals.contentMarker = true;
       out.xFrameOptions = out.xFrameOptions || !!h["x-frame-options"];
       out.xXss = out.xXss || !!h["x-xss-protection"];
       out.csp = out.csp || !!h["content-security-policy"];
@@ -379,6 +383,7 @@ function analyze(url, rendered, sec = {}) {
   const cms = desktopCms || (wpByProbe ? "wordpress" : "");
   const cmsGenerator = String(desktop.cmsGenerator || "").trim();
   const cmsVersion = cmsGenerator.match(/wordpress\s*(\d[\d.]*)|drupal\s*(\d[\d.]*)|joomla!?\s*(\d[\d.]*)/i)?.[0]?.match(/\d[\d.]*/)?.[0] || (sec.wpSignals && sec.wpSignals.wpVersion) || "";
+  const phpDetection = detectPhpRuntime(sec, finalUrl);
 
   if (cms === "wordpress") {
     if (sec.wpSignals.loginOpen) add("security", 14, "WordPress login exposed at /wp-login.php");
@@ -604,6 +609,7 @@ function analyze(url, rendered, sec = {}) {
     scores: { design: scoreFor(design_score), mobile: scoreFor(mobile_score), ux: scoreFor(ux_score), performance: scoreFor(performance_score), trust: scoreFor(trust_score), conversion: scoreFor(conversion_score), security: scoreFor(security_score) },
     cms,
     cmsVersion,
+    phpDetection,
     hackRisk,
     rawScore: raw_score,
     weightedScore: weighted_score,
@@ -638,7 +644,9 @@ export async function auditWebsite(url, options = {}) {
       renderSite(url, options.timeoutMs || 15000, options.captureScreens !== false),
       probeSecurity(normalized),
     ]);
-    return analyze(url, rendered, sec);
+    const audit = analyze(url, rendered, sec);
+    audit.phpSecurity = await assessPhpSecurity(audit.phpDetection, options.phpSecurityOptions || {});
+    return audit;
   } catch (err) {
     return {
       renderFailed: true,
@@ -669,6 +677,8 @@ export async function auditWebsite(url, options = {}) {
       scores: { design: 0, mobile: 0, ux: 0, performance: 0, trust: 0, conversion: 0, security: 0 },
       cms: "",
       cmsVersion: "",
+      phpDetection: { detected: false, version: "", confidence: "low", evidence: [] },
+      phpSecurity: { runtime: "php", detected: false, status: "no_evidence", advisories: [], advisoryCount: 0, note: "No reliable PHP evidence was observed." },
       hackRisk: { level: "n/a", factors: [], cms: "", cmsVersion: "" },
       rawScore: 0,
       weightedScore: 0,

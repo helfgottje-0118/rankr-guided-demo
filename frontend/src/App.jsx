@@ -1221,6 +1221,7 @@ function SecurityCard({ audit }) {
   const risk = (audit.hackRisk && audit.hackRisk.level) || "n/a";
   const factors = (audit.hackRisk && audit.hackRisk.factors) || [];
   const secFindings = (audit.findings || []).filter((f) => f.category === "security");
+  const php = audit.phpSecurity || null;
   const cmsLabel = audit.cms
     ? audit.cms.toLowerCase() === "wordpress"
       ? `WordPress${audit.cmsVersion ? ` ${audit.cmsVersion}` : ""}`
@@ -1238,6 +1239,22 @@ function SecurityCard({ audit }) {
         <div>
           <InfoRow k="Website platform" v={cmsLabel} />
           <InfoRow k="Uses WordPress?" v={audit.cms === "wordpress" ? "Yes" : audit.cms ? "No" : "Unknown"} />
+          <InfoRow
+            k="PHP runtime"
+            v={!php || !php.detected ? "No reliable evidence" : php.version ? `Detected — ${php.version} (${php.confidence} confidence)` : `Detected — version not exposed (${php.confidence} confidence)`}
+          />
+          {php && php.detected && (
+            <InfoRow
+              k="PHP version check"
+              v={php.status === "potentially_affected"
+                ? `${php.advisoryCount} potential NVD version match${php.advisoryCount === 1 ? "" : "es"}`
+                : php.status === "version_checked_no_matches"
+                  ? "No vulnerable NVD CPE matches returned"
+                  : php.status === "lookup_failed"
+                    ? "NVD lookup unavailable"
+                    : "Exact version unavailable — no CVE claim"}
+            />
+          )}
         </div>
         <div>
           <h4 style={{ marginBottom: 6 }}>Why this risk level</h4>
@@ -1250,6 +1267,26 @@ function SecurityCard({ audit }) {
           )}
         </div>
       </div>
+      {php && php.detected && (
+        <div className="attack-zone">
+          <h4 style={{ marginBottom: 6 }}>PHP evidence and advisory check</h4>
+          <p className="muted" style={{ fontSize: 13 }}>{php.note}</p>
+          {Array.isArray(php.evidence) && php.evidence.length > 0 && (
+            <p className="muted" style={{ fontSize: 12 }}><strong>Evidence:</strong> {php.evidence.join("; ")}</p>
+          )}
+          {Array.isArray(php.advisories) && php.advisories.length > 0 && (
+            <ul className="risk-list">
+              {php.advisories.slice(0, 8).map((cve) => (
+                <li key={cve.id}>
+                  <a href={cve.reference} target="_blank" rel="noreferrer"><strong>{cve.id}</strong></a>
+                  {cve.cvss ? ` — CVSS ${cve.cvss}` : ""} — potential version match; exploitability not confirmed
+                </li>
+              ))}
+              {php.advisories.length > 8 && <li>…and {php.advisories.length - 8} more returned records</li>}
+            </ul>
+          )}
+        </div>
+      )}
       {(() => {
         const attacks = attackTypesFor(audit);
         if (!attacks.length) return null;
