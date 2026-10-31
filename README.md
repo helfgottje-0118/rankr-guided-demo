@@ -10,6 +10,34 @@ you — and Rankr finds them, proves it, and writes the email.
 
 ---
 
+## Live deployment
+
+The current public deployment is available at `http://74.208.115.187:3212`.
+
+| Site or endpoint | Public URL |
+|---|---|
+| Rankr application | [http://74.208.115.187:3212/](http://74.208.115.187:3212/) |
+| Guided security demo | [http://74.208.115.187:3212/demo/](http://74.208.115.187:3212/demo/) |
+| Vulnerable PrimeRoof fixture | [http://74.208.115.187:3212/demo/hacked.html](http://74.208.115.187:3212/demo/hacked.html) |
+| Safe exposure walkthrough | [http://74.208.115.187:3212/demo/hackplay.html](http://74.208.115.187:3212/demo/hackplay.html) |
+| Hardened comparison fixture | [http://74.208.115.187:3212/fixed/](http://74.208.115.187:3212/fixed/) |
+| Synthetic WordPress-style login | [http://74.208.115.187:3212/wp-login.php](http://74.208.115.187:3212/wp-login.php) |
+| WordPress version disclosure | [http://74.208.115.187:3212/readme.html](http://74.208.115.187:3212/readme.html) |
+| Exposed REST route index | [http://74.208.115.187:3212/wp-json/](http://74.208.115.187:3212/wp-json/) |
+| Synthetic user enumeration | [http://74.208.115.187:3212/wp-json/wp/v2/users](http://74.208.115.187:3212/wp-json/wp/v2/users) |
+| Synthetic debug-log disclosure | [http://74.208.115.187:3212/wp-content/debug.log](http://74.208.115.187:3212/wp-content/debug.log) |
+| XML-RPC fixture | [http://74.208.115.187:3212/xmlrpc.php](http://74.208.115.187:3212/xmlrpc.php) |
+| API health check | [http://74.208.115.187:3212/api/health](http://74.208.115.187:3212/api/health) |
+
+The login fixture accepts the synthetic credentials `admin` / `letmein123`.
+It creates only a fake demo session; no real WordPress installation, customer
+data, shell, database, or writable filesystem is attached.
+
+> The deployment currently uses plain HTTP. Do not enter real credentials or
+> sensitive data. Only scan systems you own or have permission to test.
+
+---
+
 ## Quick start
 
 Two servers, run them in separate terminals.
@@ -158,21 +186,22 @@ survives reloads but is per-browser.
 
 ---
 
-## Demo: the vulnerable site
+## Demo: vulnerable and hardened fixtures
 
 The backend serves a deliberately broken WordPress-looking business site so you
 can exercise the scanner without touching anyone else's website.
 
-| URL | What it demonstrates |
+| Public URL | What it demonstrates |
 |---|---|
-| `/demo/` | Landing page for the demo |
-| `/demo/hacked.html` | What the compromised site looks like afterward |
-| `/demo/hackplay.html` | Step-by-step walkthrough of the attack chain |
-| `/readme.html` | WP version disclosure (`5.8.3`) |
-| `/wp-login.php` | Login with no rate limiting, no 2FA |
-| `/xmlrpc.php` | Open XML-RPC, `system.multicall` amplification, pingback |
-| `/wp-json/wp/v2/users` | Unauthenticated user enumeration |
-| `/wp-content/debug.log` | PHP fatal errors leaking absolute server paths |
+| [Guided demo](http://74.208.115.187:3212/demo/) | Guided audit, evidence, simulation, and comparison flow |
+| [Vulnerable fixture](http://74.208.115.187:3212/demo/hacked.html) | Fictional business with observable WordPress-style exposures |
+| [Safe walkthrough](http://74.208.115.187:3212/demo/hackplay.html) | Evidence-based `PASSED`, `FAILED`, and `SIMULATED` outcomes |
+| [Hardened fixture](http://74.208.115.187:3212/fixed/) | Same fictional business with application controls enabled |
+| [Version disclosure](http://74.208.115.187:3212/readme.html) | Synthetic WordPress version disclosure (`5.8.3`) |
+| [Login fixture](http://74.208.115.187:3212/wp-login.php) | Weak synthetic credentials with no rate limiting or 2FA |
+| [XML-RPC fixture](http://74.208.115.187:3212/xmlrpc.php) | Open XML-RPC method discovery and pingback signal |
+| [User enumeration](http://74.208.115.187:3212/wp-json/wp/v2/users) | Unauthenticated synthetic user list |
+| [Debug log](http://74.208.115.187:3212/wp-content/debug.log) | Synthetic PHP errors leaking example server paths |
 
 The mock login accepts `admin` / `letmein123`. It grants a fake session cookie
 and nothing else — there is no real WordPress behind it, no shell, no file
