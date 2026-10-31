@@ -200,6 +200,8 @@ export default function App() {
       verdict: l.verdict,
       cms: l.cms,
       cmsVersion: l.cmsVersion,
+      phpDetection: l.phpDetection,
+      phpSecurity: l.phpSecurity,
       hackRisk: l.hackRisk,
       recommended: l.recommended,
       recommendationReason: l.recommendationReason,
@@ -563,6 +565,11 @@ export default function App() {
 
 function HuntPanel({ hunt, setHunt, state, runHunt, result, error, onDetail, onExport, pushToCrm, pushAllToCrm, crmAdded, crmLoading, bulkCrmLoading, ignoreLead, unignoreLead, ignoredDomains, ignoring }) {
   const [previews, setPreviews] = useState({});
+  const [openSecurityPanel, setOpenSecurityPanel] = useState({});
+
+  const toggleSecurityPanel = (key) => {
+    setOpenSecurityPanel((current) => ({ ...current, [key]: !current[key] }));
+  };
 
   const loadPreview = async (l) => {
     if (previews[l.domain] && (previews[l.domain].loading || previews[l.domain].desktopScreenshotB64 || previews[l.domain].mobileScreenshotB64)) return;
@@ -699,7 +706,12 @@ function HuntPanel({ hunt, setHunt, state, runHunt, result, error, onDetail, onE
             </div>
           )}
 
-          {result.leads.map((l) => (
+          {result.leads.map((l) => {
+            const php = l.phpSecurity || l.phpDetection || { detected: false, evidence: [], advisories: [] };
+            const risk = l.hackRisk || { level: "n/a", factors: [] };
+            const phpPanelKey = `${l.domain}:php`;
+            const hackPanelKey = `${l.domain}:hackability`;
+            return (
             ignoredDomains && ignoredDomains[l.domain] ? (
               <div
                 className="card lead-row lead-ignored"
@@ -756,6 +768,22 @@ function HuntPanel({ hunt, setHunt, state, runHunt, result, error, onDetail, onE
                 </div>
                 <p className="muted" style={{ fontSize: 13 }}><strong>Pitch:</strong> {l.pitchAngle} — {l.fixSuggestion}</p>
                 <div className="btn-row" style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <button
+                    className={`btn btn-sm security-toggle php-toggle ${php.detected ? "is-detected" : ""}`}
+                    onClick={() => toggleSecurityPanel(phpPanelKey)}
+                    aria-expanded={openSecurityPanel[phpPanelKey] || false}
+                    title="Show PHP detection evidence and version advisory matches"
+                  >
+                    🐘 PHP: {php.detected ? "Yes" : "No"} {openSecurityPanel[phpPanelKey] ? "▴" : "▾"}
+                  </button>
+                  <button
+                    className={`btn btn-sm security-toggle hack-toggle risk-${risk.level}`}
+                    onClick={() => toggleSecurityPanel(hackPanelKey)}
+                    aria-expanded={openSecurityPanel[hackPanelKey] || false}
+                    title="Show why Rankr assigned this hackability level"
+                  >
+                    🛡️ Hackability: {risk.level} {openSecurityPanel[hackPanelKey] ? "▴" : "▾"}
+                  </button>
                   <button className="btn btn-sm" onClick={() => onDetail(l)}>Open full audit + found owner + draft email</button>
                   <button className="btn btn-sm btn-secondary" onClick={() => loadPreview(l)} disabled={previews[l.domain] && previews[l.domain].loading}>
                     {previews[l.domain] && previews[l.domain].loading ? "Rendering desktop + mobile…" : "🖼️ Preview desktop + mobile"}
@@ -791,6 +819,33 @@ function HuntPanel({ hunt, setHunt, state, runHunt, result, error, onDetail, onE
                     {ignoring && ignoring[l.domain] ? "⏳ Ignoring…" : "🚫 Ignore"}
                   </button>
                 </div>
+                {openSecurityPanel[phpPanelKey] && (
+                  <div className="lead-security-panel php-panel">
+                    <h4>PHP evidence and version check</h4>
+                    <p>
+                      <strong>{php.detected ? "PHP detected" : "No reliable PHP evidence found"}</strong>
+                      {php.version ? ` — version ${php.version}` : php.detected ? " — exact version not exposed" : ""}.
+                    </p>
+                    {php.note && <p className="muted">{php.note}</p>}
+                    {Array.isArray(php.evidence) && php.evidence.length > 0 && (
+                      <ul>{php.evidence.map((item, i) => <li key={i}>{item}</li>)}</ul>
+                    )}
+                    {Array.isArray(php.advisories) && php.advisories.length > 0 && (
+                      <p><strong>{php.advisories.length} potential NVD version match{php.advisories.length === 1 ? "" : "es"}.</strong> A version match does not confirm exploitability.</p>
+                    )}
+                  </div>
+                )}
+                {openSecurityPanel[hackPanelKey] && (
+                  <div className={`lead-security-panel hack-panel risk-${risk.level}`}>
+                    <h4>Why this site may be hackable</h4>
+                    <p><strong>Rankr rating: {risk.level}</strong> — this is an exposure estimate, not proof that the site can be compromised.</p>
+                    {Array.isArray(risk.factors) && risk.factors.length > 0 ? (
+                      <ul>{risk.factors.map((factor, i) => <li key={i}>{factor}</li>)}</ul>
+                    ) : (
+                      <p className="muted">No common hackability factors were detected during this audit.</p>
+                    )}
+                  </div>
+                )}
                 {(previews[l.domain] && (previews[l.domain].desktopScreenshotB64 || previews[l.domain].mobileScreenshotB64)) && (
                   <div className="shot-compare lead-preview">
                     {previews[l.domain].desktopScreenshotB64 && (
@@ -822,7 +877,8 @@ function HuntPanel({ hunt, setHunt, state, runHunt, result, error, onDetail, onE
               </div>
             </div>
             )
-          ))}
+          );
+          })}
         </>
       )}
     </>

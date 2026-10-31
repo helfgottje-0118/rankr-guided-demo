@@ -303,6 +303,8 @@ app.post("/api/hunt", async (req, res) => {
         verdict: a.verdict,
         cms: a.cms || "",
         cmsVersion: a.cmsVersion || "",
+        phpDetection: a.phpDetection,
+        phpSecurity: a.phpSecurity,
         hackRisk: a.hackRisk || { level: "n/a", factors: [], cms: "", cmsVersion: "" },
         scores: a.scores,
         issuesFoundCount: a.issuesFoundCount,
